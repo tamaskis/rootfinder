@@ -1,2 +1,3 @@
-// Linking project modules.
-pub(crate) mod root_bisection;
+// Module declarations.
+pub(crate) mod bisection;
+pub(crate) mod newton;

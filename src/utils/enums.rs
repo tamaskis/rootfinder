@@ -19,20 +19,37 @@ impl std::fmt::Display for SolverError {
 }
 
 /// Solver termination reasons.
-#[derive(Debug, Default)]
+///
+/// # Note
+///
+/// We derive the `PartialEq` trait to facilitate easier unit testing.
+#[derive(Debug, Default, PartialEq)]
 pub enum TerminationReason {
     /// Solver not yet terminated.
     #[default]
     NotYetTerminated,
 
     /// Solver terminated on reaching the maximum number of iterations.
-    MaxIterReached,
+    MaxIterationsReached,
+
+    /// Solver terminated on reaching the maximum number of function evaluations.
+    MaxFunctionEvaluationsReached,
 
     /// Solver terminated on satisfying the absolute bracket tolerance.
     AbsoluteBracketToleranceSatisfied,
 
+    /// Solver terminated on satisfying the absolute step tolerance.
+    AbsoluteStepToleranceSatisfied,
+
     /// Solver terminated on satisfying the value tolerance.
     ValueToleranceSatisfied,
+
+    /// Solver terminated due to a zero derivative.
+    ///
+    /// # Note
+    ///
+    /// This is only used for Newton's method.
+    ZeroDerivative,
 }
 
 #[cfg(test)]

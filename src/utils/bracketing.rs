@@ -42,7 +42,7 @@ impl Interval {
     ///
     /// This constructor returns the interval
     ///
-    /// $[a,b]=[x,x+100\varepsilon(1+\|x\|)]$
+    /// $\[a,b\]=[x,x+100\varepsilon(1+\|x\|)]$
     pub fn from_point(x: f64) -> Self {
         Self {
             a: x,
@@ -75,7 +75,7 @@ impl fmt::Display for Interval {
 /// * `Ok` - Bracketing interval containing a sign change in $f(x)$.
 /// * `Err` - A solver error that was encountered.
 pub fn bracket_sign_change(
-    f: fn(f64) -> f64,
+    f: &impl Fn(f64) -> f64,
     ab: Interval,
     max_iter: Option<u32>,
     convergence_data: Option<&mut ConvergenceData>,
@@ -169,7 +169,7 @@ mod tests {
         let f = |x: f64| x;
         let ab = Interval::new(-1.0, 1.0);
         let mut convergence_data = ConvergenceData::default();
-        let ab_new = bracket_sign_change(f, ab, None, Some(&mut convergence_data));
+        let ab_new = bracket_sign_change(&f, ab, None, Some(&mut convergence_data));
         assert_eq!(ab_new.unwrap(), ab);
         assert_eq!(convergence_data.n_bracket_iter, 0);
         assert_eq!(convergence_data.n_feval, 2);
@@ -180,7 +180,7 @@ mod tests {
         let f = |x: f64| x;
         let ab = Interval::from_point(0.0);
         let mut convergence_data = ConvergenceData::default();
-        let ab_new = bracket_sign_change(f, ab, None, Some(&mut convergence_data));
+        let ab_new = bracket_sign_change(&f, ab, None, Some(&mut convergence_data));
         assert_eq!(
             ab_new.unwrap(),
             Interval::new(-1.1102230246251565e-14, 3.3306690738754696e-14)
@@ -194,7 +194,7 @@ mod tests {
         let f = |x: f64| x;
         let ab = Interval::from_point(10.0);
         let mut convergence_data = ConvergenceData::default();
-        let ab_new = bracket_sign_change(f, ab, None, Some(&mut convergence_data));
+        let ab_new = bracket_sign_change(&f, ab, None, Some(&mut convergence_data));
         assert_eq!(
             ab_new.unwrap(),
             Interval::new(-7.249999999999877, 27.25000000000012)
@@ -208,7 +208,7 @@ mod tests {
         let f = |x: f64| x;
         let ab = Interval::new(50.0, 100.0);
         let mut convergence_data = ConvergenceData::default();
-        let ab_new = bracket_sign_change(f, ab, None, Some(&mut convergence_data));
+        let ab_new = bracket_sign_change(&f, ab, None, Some(&mut convergence_data));
         assert_eq!(ab_new.unwrap(), Interval::new(-25.0, 175.0));
         assert_eq!(convergence_data.n_bracket_iter, 2);
         assert_eq!(convergence_data.n_feval, 6);
@@ -219,7 +219,7 @@ mod tests {
         let f = |x: f64| x.powi(2) + 1.0;
         let ab = Interval::new(-1.0, 1.0);
         let mut convergence_data = ConvergenceData::default();
-        let result = bracket_sign_change(f, ab, None, Some(&mut convergence_data));
+        let result = bracket_sign_change(&f, ab, None, Some(&mut convergence_data));
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),

@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 pub static DEFAULT_SOLVER_SETTINGS: Lazy<SolverSettings> = Lazy::new(SolverSettings::default);
 
 /// Solver settings.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SolverSettings {
     /// Absolute step tolerance.
     ///
@@ -49,10 +49,6 @@ pub struct SolverSettings {
 
     /// Maximum number of bracketing iterations allowed.
     pub max_bracket_iter: Option<u32>,
-
-    /// `true` if all iterates, bracketing intervals, function evaluations, derivative evaluations,
-    /// etc., should be stored, `false` if they should not.
-    pub store_iterates: Option<bool>,
 }
 
 impl SolverSettings {
@@ -73,9 +69,6 @@ impl SolverSettings {
     /// * `rebracket` - `true` if the initial interval should be updated to ensure a sign change,
     ///                 `false` otherwise.
     /// * `max_bracket_iter` - Maximum number of bracketing iterations allowed.
-    /// * `store_iterates` - `true` if all iterates, bracketing intervals, function evaluations,
-    ///                      derivative evaluations, etc., should be stored, `false` if they should
-    ///                      not.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         xatol: Option<f64>,
@@ -86,7 +79,6 @@ impl SolverSettings {
         max_deval: Option<u32>,
         rebracket: Option<bool>,
         max_bracket_iter: Option<u32>,
-        store_iterates: Option<bool>,
     ) -> Self {
         Self {
             xatol,
@@ -97,7 +89,6 @@ impl SolverSettings {
             max_deval,
             rebracket,
             max_bracket_iter,
-            store_iterates,
         }
     }
 }
@@ -116,6 +107,5 @@ mod tests {
         assert!(DEFAULT_SOLVER_SETTINGS.max_deval.is_none());
         assert!(DEFAULT_SOLVER_SETTINGS.rebracket.is_none());
         assert!(DEFAULT_SOLVER_SETTINGS.max_bracket_iter.is_none());
-        assert!(DEFAULT_SOLVER_SETTINGS.store_iterates.is_none());
     }
 }

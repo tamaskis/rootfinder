@@ -1,4 +1,4 @@
-// Linking project modules.
+// Module declarations.
 pub(crate) mod bracketing;
 pub(crate) mod convergence_data;
 pub(crate) mod enums;
