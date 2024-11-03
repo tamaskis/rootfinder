@@ -14,7 +14,10 @@ pub(crate) mod univariate_roots;
 pub(crate) mod utils;
 
 // Re-exports.
-pub use crate::univariate_roots::root_bisection::{root_bisection, root_bisection_fast};
+pub use crate::univariate_roots::bisection::{root_bisection, root_bisection_fast};
+pub use crate::univariate_roots::newton::{
+    root_newton, root_newton_fast, DEFAULT_NEWTON_SOLVER_SETTINGS,
+};
 pub use crate::utils::bracketing::Interval;
 pub use crate::utils::enums::SolverError;
 pub use crate::utils::solver_settings::{SolverSettings, DEFAULT_SOLVER_SETTINGS};
