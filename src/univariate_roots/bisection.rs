@@ -48,7 +48,6 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 /// * `max_feval`
 /// * `rebracket`
 /// * `max_bracket_iter`
-/// * `store_iterates`
 ///
 /// # Example
 ///
@@ -126,11 +125,8 @@ pub fn root_bisection(
     let mut max_iter = solver_settings.max_iter.unwrap_or(k_12);
     max_iter = max_iter.min(k_12);
 
-    // Initial guess.
+    // Initial guess (i.e. initial bracketing interval midpoint).
     let mut c = (a + b) / 2.0;
-
-    // Function evaluation at bracketing interval midpoint.
-    let mut fc: f64;
 
     // Return the initial guess if the maximum number of function evaluations has already been
     // met/exceeded or if no iteration is required (initial interval has width within bracket
@@ -138,11 +134,11 @@ pub fn root_bisection(
     if (solver_settings.max_feval.is_some() && n_feval >= solver_settings.max_feval.unwrap())
         || max_iter == 0
     {
-        if let Some(convergence_data) = convergence_data {
+        if let Some(convergence_data) = convergence_data.as_deref_mut() {
             convergence_data.x_all.push(c);
             convergence_data.a_all.push(a);
             convergence_data.b_all.push(b);
-            convergence_data.f_all.push(f(c));
+            convergence_data.f_all.push(f64::NAN);
             convergence_data.n_iter = 0;
             convergence_data.n_feval = n_feval;
         }
@@ -158,6 +154,9 @@ pub fn root_bisection(
     if solver_settings.max_feval.is_some() {
         max_iter = max_iter.min(solver_settings.max_feval.unwrap() - n_feval);
     }
+
+    // Variable to store the function evaluation at the current root estimate.
+    let mut fc;
 
     // Iterative solution.
     for _ in 0..max_iter {
@@ -191,8 +190,12 @@ pub fn root_bisection(
         c = (a + b) / 2.0;
     }
 
-    // Stores the number of function evaluations.
+    // Stores the last root estimate, bracketing interval, and the number of function evaluations.
     if let Some(convergence_data) = convergence_data {
+        convergence_data.x_all.push(c);
+        convergence_data.a_all.push(a);
+        convergence_data.b_all.push(b);
+        convergence_data.f_all.push(f64::NAN);
         convergence_data.n_feval = n_feval;
     }
 
@@ -200,7 +203,7 @@ pub fn root_bisection(
     Ok(c)
 }
 
-/// Bisection method for finding the root of a univariate, scalar-valued function.
+/// Bisection method for finding the root of a univariate, scalar-valued function (fast version).
 ///
 /// This implementation is a faster version of [`root_bisection`], with the following changes:
 ///
@@ -304,10 +307,11 @@ mod tests {
     /// * `n_iter_exp` - Expected number of iterations.
     /// * `n_feval_exp` - Expected number of function evaluations.
     /// * `n_bracket_iter_exp` - Expected number of bracketing iterations.
-    /// * `xatol` - Absolute tolerance for checking if the root (as computed by [`root_bisection`])
-    ///             matches the expected root. Defaults to [`f64::EPSILON`].
-    /// * `vtol` - Value tolerance for checking if the function value at the root (as computed by
-    ///            [`root_bisection`]) is sufficiently close to 0. Defaults to [`f64::EPSILON`].
+    /// * `root_tol` - Absolute tolerance for checking if the root (as computed by
+    ///                [`root_bisection`]) matches the expected root. Defaults to [`f64::EPSILON`].
+    /// * `value_tol` - Absolute tolerance for checking if the function value at the root (as
+    ///                 computed by [`root_bisection`]) is sufficiently close to 0. Defaults to
+    ///                 [`f64::EPSILON`].
     #[allow(clippy::too_many_arguments)]
     fn root_bisection_test_helper(
         f: fn(f64) -> f64,
@@ -317,12 +321,12 @@ mod tests {
         n_iter_exp: u32,
         n_feval_exp: u32,
         n_bracket_iter_exp: u32,
-        xatol: Option<f64>,
-        vtol: Option<f64>,
+        root_tol: Option<f64>,
+        value_tol: Option<f64>,
     ) {
         // Set default values.
-        let xatol = xatol.unwrap_or(f64::EPSILON);
-        let vtol = vtol.unwrap_or(f64::EPSILON);
+        let root_tol = root_tol.unwrap_or(f64::EPSILON);
+        let value_tol = value_tol.unwrap_or(f64::EPSILON);
         let mut convergence_data = ConvergenceData::default();
 
         // Solve for the root using both the "full" and "fast" versions of the bisection method.
@@ -330,8 +334,8 @@ mod tests {
         let x_fast = root_bisection_fast(f, ab);
 
         // Check results using the "full" version.
-        assert_equal_to_atol!(x, x_exp, xatol);
-        assert_equal_to_atol!(f(x), 0.0, vtol);
+        assert_equal_to_atol!(x, x_exp, root_tol);
+        assert_equal_to_atol!(f(x), 0.0, value_tol);
 
         // Check parity between full and fast implementations if not testing rebracketing (the fast
         // implementation does not rebracket).
@@ -628,13 +632,12 @@ mod tests {
     ///
     /// * https://en.wikipedia.org/wiki/Bisection_method
     #[test]
-    fn test_root_bisection_store_iterates() {
+    fn test_root_bisection_iterates() {
         let f = |x: f64| x.powi(3) - x - 2.0;
         let ab = Interval::new(1.0, 2.0);
         let mut convergence_data = ConvergenceData::default();
         let solver_settings = SolverSettings {
-            max_iter: Some(15),
-            store_iterates: Some(true),
+            max_iter: Some(14),
             ..Default::default()
         };
         let _ = root_bisection(f, ab, Some(&solver_settings), Some(&mut convergence_data)).unwrap();
@@ -643,6 +646,43 @@ mod tests {
             [
                 1.5, 1.75, 1.625, 1.5625, 1.5312500, 1.5156250, 1.5234375, 1.5195313, 1.5214844,
                 1.5205078, 1.5209961, 1.5212402, 1.5213623, 1.5214233, 1.5213928
+            ],
+            7
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.a_all,
+            [
+                1.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5156250, 1.5156250, 1.5195313, 1.5195313,
+                1.5205078, 1.5209961, 1.5212402, 1.5213623, 1.5213623
+            ],
+            7
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.b_all,
+            [
+                2.0, 2.0, 1.75, 1.625, 1.5625, 1.5312500, 1.5312500, 1.5234375, 1.5234375,
+                1.5214844, 1.5214844, 1.5214844, 1.5214844, 1.5214844, 1.5214233
+            ],
+            7
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.f_all,
+            [
+                -0.125,
+                1.6093750,
+                0.6660156,
+                0.2521973,
+                0.0591125,
+                -0.0340538,
+                0.0122504,
+                -0.0109712,
+                0.0006222,
+                -0.0051789,
+                -0.0022794,
+                -0.0008289,
+                -0.0001034,
+                0.0002594,
+                f64::NAN
             ],
             7
         );

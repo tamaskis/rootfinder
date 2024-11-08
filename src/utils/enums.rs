@@ -31,6 +31,9 @@ pub enum TerminationReason {
     /// Solver terminated on satisfying the absolute bracket tolerance.
     AbsoluteBracketToleranceSatisfied,
 
+    /// Solver terminated on satisfying the absolute step tolerance.
+    AbsoluteStepToleranceSatisfied,
+
     /// Solver terminated on satisfying the value tolerance.
     ValueToleranceSatisfied,
 }
