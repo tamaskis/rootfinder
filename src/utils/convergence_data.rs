@@ -1,5 +1,14 @@
 use crate::utils::enums::TerminationReason;
 
+/// Convergence data.
+///
+/// # Note
+///
+/// * The 0th element of the storage vectors (e.g. `x_all`, `f_all`, etc.) store values
+///   corresponding to the initial guess (i.e. the 0th iteration).
+/// * The number of iterations is always one less than the number of iterates. This is because the
+///   1st iteration takes us from iterate 0 (i.e. the initial guess) to iterate 1, the 2nd iteration
+///   takes us from iterate 1 to iterate 2, etc.
 #[derive(Debug, Default)]
 pub struct ConvergenceData {
     /// Solutions at all iterations.
@@ -12,9 +21,17 @@ pub struct ConvergenceData {
     pub b_all: Vec<f64>,
 
     /// Function evaluations at all iterations.
+    ///
+    /// # Warning
+    ///
+    /// If the function was not evaluated at the initial guess, `f_all[0]` will be [`f64::NAN`].
     pub f_all: Vec<f64>,
 
     /// Derivative evaluations at all iterations.
+    ///
+    /// # Warning
+    ///
+    /// If the derivative was not evaluated at the initial guess, `df_all[0]` will be [`f64::NAN`].
     pub df_all: Vec<f64>,
 
     /// Number of iterations to find a bracketing interval.

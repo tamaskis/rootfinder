@@ -1,9 +1,9 @@
 use crate::utils::{
     bracketing::{bracket_sign_change, Interval},
     convergence_data::ConvergenceData,
-    enums::SolverError,
+    enums::{SolverError, TerminationReason},
     solver_settings::{SolverSettings, DEFAULT_SOLVER_SETTINGS},
-    termination::is_vtol_satisfied,
+    termination::{is_max_feval_satisfied, is_vtol_satisfied},
 };
 
 /// Determine the number of bisection iterations required to converge within a bracket tolerance.
@@ -48,31 +48,36 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 /// * `max_feval`
 /// * `rebracket`
 /// * `max_bracket_iter`
-/// * `store_iterates`
 ///
 /// # Example
 ///
 /// Finding the root of $f(x)=x^{2}-1$ in the interval $[0,\infty)$.
 ///
 /// ```
+/// use numtest::*;
+///
 /// use rootfinder::{root_bisection, Interval};
-/// use numtest::*; // for checking result
 ///
 /// // Define the function.
 /// let f = |x: f64| x.powi(2) - 1.0;
 ///
 /// // We want the root in the interval [0,∞). Therefore, we use an initial interval of
 /// // [a,b] = [0,9999999]. Finding this root using the bisection method,
-/// let result = root_bisection(f, Interval::new(0.0, 9999999.0), None, None);
+/// let result = root_bisection(&f, Interval::new(0.0, 9999999.0), None, None);
 /// let root = result.unwrap();
 /// assert_equal_to_decimal!(root, 1.0, 16);
 /// ```
 pub fn root_bisection(
-    f: fn(f64) -> f64,
+    f: &impl Fn(f64) -> f64,
     ab: Interval,
     solver_settings: Option<&SolverSettings>,
     mut convergence_data: Option<&mut ConvergenceData>,
 ) -> Result<f64, SolverError> {
+    // Since we will pre-compute the maximum number of iterations based on multiple termination
+    // criteria, we need to start tracking which criterion dictates the number of iterations we
+    // perform.
+    let mut termination_reason = TerminationReason::AbsoluteBracketToleranceSatisfied;
+
     // Set solver settings.
     let solver_settings: &SolverSettings = solver_settings.unwrap_or(&DEFAULT_SOLVER_SETTINGS);
 
@@ -124,27 +129,39 @@ pub fn root_bisection(
 
     // Set the maximum number of iterations allowed.
     let mut max_iter = solver_settings.max_iter.unwrap_or(k_12);
-    max_iter = max_iter.min(k_12);
 
-    // Initial guess.
+    // If the maximum number of iterations is greater than the number of iterations needed for
+    // convergence to the absolute bracket tolerance (k_12), then update it to k_12. Otherwise, we
+    // update the termination reason to reflect that the specified maximum number of iterations
+    // currently dictates the solver termination.
+    if max_iter >= k_12 {
+        max_iter = k_12;
+    } else {
+        termination_reason = TerminationReason::MaxIterationsReached;
+    }
+
+    // Initial guess (i.e. initial bracketing interval midpoint).
     let mut c = (a + b) / 2.0;
-
-    // Function evaluation at bracketing interval midpoint.
-    let mut fc: f64;
 
     // Return the initial guess if the maximum number of function evaluations has already been
     // met/exceeded or if no iteration is required (initial interval has width within bracket
     // tolerance).
-    if (solver_settings.max_feval.is_some() && n_feval >= solver_settings.max_feval.unwrap())
+    if is_max_feval_satisfied(n_feval, solver_settings, convergence_data.as_deref_mut())
         || max_iter == 0
     {
-        if let Some(convergence_data) = convergence_data {
+        if let Some(convergence_data) = convergence_data.as_deref_mut() {
+            // Store data.
             convergence_data.x_all.push(c);
             convergence_data.a_all.push(a);
             convergence_data.b_all.push(b);
-            convergence_data.f_all.push(f(c));
+            convergence_data.f_all.push(f64::NAN);
             convergence_data.n_iter = 0;
             convergence_data.n_feval = n_feval;
+
+            // Set the termination reason if it hasn't been set by one of the termination functions.
+            if let TerminationReason::NotYetTerminated = convergence_data.termination_reason {
+                convergence_data.termination_reason = termination_reason;
+            }
         }
         return Ok(c);
     }
@@ -156,8 +173,22 @@ pub fn root_bisection(
     // Adjust the maximum number of iterations to account for the maximum number of function
     // evaluations.
     if solver_settings.max_feval.is_some() {
-        max_iter = max_iter.min(solver_settings.max_feval.unwrap() - n_feval);
+        // Number of function evaluations remaining.
+        let n_feval_remaining = solver_settings.max_feval.unwrap() - n_feval;
+
+        // If the number of function evaluations remaining is less than the maximum number of
+        // iterations, we must updated the maximum number of iterations so we don't exceed the
+        // maximum number of function evaluations. Additionally, we update the termination reason to
+        // reflect that the maximum number of function evaluations currently dictates the solver
+        // termination.
+        if n_feval_remaining < max_iter {
+            max_iter = n_feval_remaining;
+            termination_reason = TerminationReason::MaxFunctionEvaluationsReached;
+        }
     }
+
+    // Variable to store the function evaluation at the current root estimate.
+    let mut fc;
 
     // Iterative solution.
     for _ in 0..max_iter {
@@ -191,16 +222,27 @@ pub fn root_bisection(
         c = (a + b) / 2.0;
     }
 
-    // Stores the number of function evaluations.
+    // Stores the last root estimate, bracketing interval, the number of function evaluations, and
+    // the termination reason.
     if let Some(convergence_data) = convergence_data {
+        // Store data.
+        convergence_data.x_all.push(c);
+        convergence_data.a_all.push(a);
+        convergence_data.b_all.push(b);
+        convergence_data.f_all.push(f64::NAN);
         convergence_data.n_feval = n_feval;
+
+        // Set the termination reason if it hasn't been set by one of the termination functions.
+        if let TerminationReason::NotYetTerminated = convergence_data.termination_reason {
+            convergence_data.termination_reason = termination_reason;
+        }
     }
 
     // Converged root.
     Ok(c)
 }
 
-/// Bisection method for finding the root of a univariate, scalar-valued function.
+/// Bisection method for finding the root of a univariate, scalar-valued function (fast version).
 ///
 /// This implementation is a faster version of [`root_bisection`], with the following changes:
 ///
@@ -227,18 +269,19 @@ pub fn root_bisection(
 /// Finding the root of $f(x)=x^{2}-1$ in the interval $[0,\infty)$.
 ///
 /// ```
+/// use numtest::*;
+///
 /// use rootfinder::{root_bisection_fast, Interval};
-/// use numtest::*; // for checking result
 ///
 /// // Define the function.
 /// let f = |x: f64| x.powi(2) - 1.0;
 ///
 /// // We want the root in the interval [0,∞). Therefore, we use an initial interval of
 /// // [a,b] = [0,9999999]. Finding this root using the bisection method,
-/// let root = root_bisection_fast(f, Interval::new(0.0, 9999999.0));
+/// let root = root_bisection_fast(&f, Interval::new(0.0, 9999999.0));
 /// assert_equal_to_decimal!(root, 1.0, 16);
 /// ```
-pub fn root_bisection_fast(f: fn(f64) -> f64, ab: Interval) -> f64 {
+pub fn root_bisection_fast(f: &impl Fn(f64) -> f64, ab: Interval) -> f64 {
     // Determine the number of iterations needed for convergence.
     let n_iter = ((ab.b - ab.a) / (2.0 * f64::EPSILON)).log2().ceil() as u32;
 
@@ -279,6 +322,7 @@ pub fn root_bisection_fast(f: fn(f64) -> f64, ab: Interval) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::enums::TerminationReason;
     use numtest::*;
 
     #[test]
@@ -301,28 +345,31 @@ mod tests {
     /// * `ab` - Initial bracketing interval.
     /// * `solver_settings` - Solver settings.
     /// * `x_exp` - Expected root.
+    /// * `root_tol` - Absolute tolerance for checking if the root (as computed by
+    ///                [`root_bisection`]) matches the expected root. Defaults to [`f64::EPSILON`].
+    /// * `value_tol` - Absolute tolerance for checking if the function value at the root (as
+    ///                 computed by [`root_bisection`]) is sufficiently close to 0. Defaults to
+    ///                 [`f64::EPSILON`].
     /// * `n_iter_exp` - Expected number of iterations.
     /// * `n_feval_exp` - Expected number of function evaluations.
     /// * `n_bracket_iter_exp` - Expected number of bracketing iterations.
-    /// * `xatol` - Absolute tolerance for checking if the root (as computed by [`root_bisection`])
-    ///             matches the expected root. Defaults to [`f64::EPSILON`].
-    /// * `vtol` - Value tolerance for checking if the function value at the root (as computed by
-    ///            [`root_bisection`]) is sufficiently close to 0. Defaults to [`f64::EPSILON`].
+    /// * `reason_exp` - Expected termination reason.
     #[allow(clippy::too_many_arguments)]
     fn root_bisection_test_helper(
-        f: fn(f64) -> f64,
+        f: &impl Fn(f64) -> f64,
         ab: Interval,
         solver_settings: Option<&SolverSettings>,
         x_exp: f64,
+        root_tol: Option<f64>,
+        value_tol: Option<f64>,
         n_iter_exp: u32,
         n_feval_exp: u32,
         n_bracket_iter_exp: u32,
-        xatol: Option<f64>,
-        vtol: Option<f64>,
+        reason_exp: TerminationReason,
     ) {
         // Set default values.
-        let xatol = xatol.unwrap_or(f64::EPSILON);
-        let vtol = vtol.unwrap_or(f64::EPSILON);
+        let root_tol = root_tol.unwrap_or(f64::EPSILON);
+        let value_tol = value_tol.unwrap_or(f64::EPSILON);
         let mut convergence_data = ConvergenceData::default();
 
         // Solve for the root using both the "full" and "fast" versions of the bisection method.
@@ -330,8 +377,8 @@ mod tests {
         let x_fast = root_bisection_fast(f, ab);
 
         // Check results using the "full" version.
-        assert_equal_to_atol!(x, x_exp, xatol);
-        assert_equal_to_atol!(f(x), 0.0, vtol);
+        assert_equal_to_atol!(x, x_exp, root_tol);
+        assert_equal_to_atol!(f(x), 0.0, value_tol);
 
         // Check parity between full and fast implementations if not testing rebracketing (the fast
         // implementation does not rebracket).
@@ -343,110 +390,120 @@ mod tests {
         assert_eq!(convergence_data.n_iter, n_iter_exp);
         assert_eq!(convergence_data.n_feval, n_feval_exp);
         assert_eq!(convergence_data.n_bracket_iter, n_bracket_iter_exp);
+
+        // Check that the termination reason matches the expected termination reason.
+        assert_eq!(convergence_data.termination_reason, reason_exp);
     }
 
     #[test]
     fn test_root_bisection_root_at_midpoint() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.0, 2.0),
             None,
             1.0,
+            None,
+            Some(2.0 * f64::EPSILON),
             52,
             53,
             0,
-            None,
-            Some(2.0 * f64::EPSILON),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_root_at_lower_bound() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(1.0, 2.0),
             None,
             1.0,
+            None,
+            Some(2.0 * f64::EPSILON),
             51,
             52,
             0,
-            None,
-            Some(2.0 * f64::EPSILON),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_root_at_upper_bound() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.0, 1.0),
             None,
             1.0,
+            None,
+            Some(2.0 * f64::EPSILON),
             51,
             52,
             0,
-            None,
-            Some(2.0 * f64::EPSILON),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_large_initial_interval() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.0, 9999999.0),
             None,
             1.0,
+            None,
+            None,
             75,
             76,
             0,
-            None,
-            None,
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_root_within_tolerance() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(1.0 - f64::EPSILON, 1.0 + f64::EPSILON),
             None,
             1.0,
-            0,
-            0,
-            0,
             None,
             None,
+            0,
+            0,
+            0,
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_zero_bracket_width() {
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(1.0, 1.0),
             None,
             1.0,
-            0,
-            0,
-            0,
             None,
             None,
+            0,
+            0,
+            0,
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
     #[test]
     fn test_root_bisection_constant_function() {
         root_bisection_test_helper(
-            |_x: f64| 1.0,
+            &|_x: f64| 1.0,
             Interval::new(0.0, 2.0),
             None,
             2.0,
+            None,
+            Some(2.0),
             52,
             53,
             0,
-            None,
-            Some(2.0),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
@@ -457,15 +514,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.75, 1.5),
             Some(&solver_settings),
             1.0,
+            Some(solver_settings.batol.unwrap() / 2.0), // Should be within half the bracket tolerance of the true root.
+            Some(0.1),
             3,
             4,
             0,
-            Some(solver_settings.batol.unwrap() / 2.0), // Should be within half the bracket tolerance of the true root.
-            Some(0.1),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
@@ -476,15 +534,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.75, 1.5),
             Some(&solver_settings),
             1.0,
+            Some(solver_settings.vtol.unwrap() / 2.0),
+            Some(0.01),
             6,
             7,
             0,
-            Some(solver_settings.vtol.unwrap() / 2.0),
-            Some(0.01),
+            TerminationReason::ValueToleranceSatisfied,
         );
     }
 
@@ -495,15 +554,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.75, 1.5),
             Some(&solver_settings),
             1.0,
+            Some(0.0002),
+            Some(0.0004),
             10,
             11,
             0,
-            Some(0.0002),
-            Some(0.0004),
+            TerminationReason::MaxIterationsReached,
         );
     }
 
@@ -514,15 +574,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.75, 1.5),
             Some(&solver_settings),
             1.0,
+            Some(0.001),
+            Some(0.002),
             9,
             10,
             0,
-            Some(0.001),
-            Some(0.002),
+            TerminationReason::MaxFunctionEvaluationsReached,
         );
     }
 
@@ -533,15 +594,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(0.0, 2.0),
             Some(&solver_settings),
             1.0,
+            None,
+            Some(2.0 * f64::EPSILON),
             52,
             55,
             0,
-            None,
-            Some(2.0 * f64::EPSILON),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
@@ -552,15 +614,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(2) - 1.0,
+            &|x: f64| x.powi(2) - 1.0,
             Interval::new(1.5, 2.5),
             Some(&solver_settings),
             1.0,
+            None,
+            Some(2.0 * f64::EPSILON),
             53,
             60,
             2,
-            None,
-            Some(2.0 * f64::EPSILON),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
@@ -572,7 +635,7 @@ mod tests {
         };
         let mut convergence_data = ConvergenceData::default();
         let result = root_bisection(
-            |x: f64| x.powi(2) + 1.0,
+            &|x: f64| x.powi(2) + 1.0,
             Interval::new(-2.0, 2.0),
             Some(&solver_settings),
             Some(&mut convergence_data),
@@ -585,6 +648,27 @@ mod tests {
     }
 
     #[test]
+    fn test_root_bisection_rebracket_exceeds_max_feval() {
+        let solver_settings = SolverSettings {
+            rebracket: Some(true),
+            max_feval: Some(5),
+            ..Default::default()
+        };
+        root_bisection_test_helper(
+            &|x: f64| x.powi(2) - 1.0,
+            Interval::new(1.5, 2.5),
+            Some(&solver_settings),
+            1.0,
+            Some(1.0),
+            Some(3.0),
+            0,
+            6,
+            2,
+            TerminationReason::MaxFunctionEvaluationsReached,
+        );
+    }
+
+    #[test]
     fn test_root_bisection_max_bracket_iter_successful() {
         let solver_settings = SolverSettings {
             rebracket: Some(true),
@@ -592,15 +676,16 @@ mod tests {
             ..Default::default()
         };
         root_bisection_test_helper(
-            |x: f64| x.powi(3) - 1.0,
+            &|x: f64| x.powi(3) - 1.0,
             Interval::new(1000.0, 1100.0),
             Some(&solver_settings),
             1.0,
+            Some(9.0),
+            Some(99.0),
             63,
             76,
             5,
-            Some(9.0),
-            Some(99.0),
+            TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
     }
 
@@ -612,7 +697,7 @@ mod tests {
             ..Default::default()
         };
         let result = root_bisection(
-            |x: f64| x.powi(3) - 1.0,
+            &|x: f64| x.powi(3) - 1.0,
             Interval::new(1000.0, 1100.0),
             Some(&solver_settings),
             None,
@@ -628,23 +713,100 @@ mod tests {
     ///
     /// * https://en.wikipedia.org/wiki/Bisection_method
     #[test]
-    fn test_root_bisection_store_iterates() {
+    fn test_root_bisection_iterates() {
         let f = |x: f64| x.powi(3) - x - 2.0;
         let ab = Interval::new(1.0, 2.0);
         let mut convergence_data = ConvergenceData::default();
         let solver_settings = SolverSettings {
-            max_iter: Some(15),
-            store_iterates: Some(true),
+            max_iter: Some(14),
             ..Default::default()
         };
-        let _ = root_bisection(f, ab, Some(&solver_settings), Some(&mut convergence_data)).unwrap();
+        let root =
+            root_bisection(&f, ab, Some(&solver_settings), Some(&mut convergence_data)).unwrap();
+        assert_eq!(root, *convergence_data.x_all.last().unwrap());
         assert_arrays_equal_to_decimal!(
             convergence_data.x_all,
             [
-                1.5, 1.75, 1.625, 1.5625, 1.5312500, 1.5156250, 1.5234375, 1.5195313, 1.5214844,
-                1.5205078, 1.5209961, 1.5212402, 1.5213623, 1.5214233, 1.5213928
+                1.5,
+                1.75,
+                1.625,
+                1.5625,
+                1.53125,
+                1.515625,
+                1.5234375,
+                1.51953125,
+                1.521484375,
+                1.5205078125,
+                1.52099609375,
+                1.521240234375,
+                1.5213623046875,
+                1.52142333984375,
+                1.521392822265625
             ],
-            7
+            16
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.a_all,
+            [
+                1.0,
+                1.5,
+                1.5,
+                1.5,
+                1.5,
+                1.5,
+                1.515625,
+                1.515625,
+                1.51953125,
+                1.51953125,
+                1.5205078125,
+                1.52099609375,
+                1.521240234375,
+                1.5213623046875,
+                1.5213623046875
+            ],
+            16
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.b_all,
+            [
+                2.0,
+                2.0,
+                1.75,
+                1.625,
+                1.5625,
+                1.53125,
+                1.53125,
+                1.5234375,
+                1.5234375,
+                1.521484375,
+                1.521484375,
+                1.521484375,
+                1.521484375,
+                1.521484375,
+                1.52142333984375
+            ],
+            16
+        );
+        assert_arrays_equal_to_decimal!(
+            convergence_data.f_all,
+            [
+                -0.125,
+                1.609375,
+                0.666015625,
+                0.252197265625,
+                0.059112548828125,
+                -0.034053802490234375,
+                0.012250423431396484,
+                -0.010971248149871826,
+                6.221756339073181e-4,
+                -5.178886465728283e-3,
+                -2.279443317092955e-3,
+                -8.289058605441824e-4,
+                -1.034331235132413e-4,
+                2.593542519662151e-4,
+                f64::NAN
+            ],
+            16
         );
     }
 }

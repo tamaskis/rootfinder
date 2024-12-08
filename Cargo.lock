@@ -19,9 +19,9 @@ dependencies = [
 
 [[package]]
 name = "numtest"
-version = "0.1.6"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d609a81229853310a0906d33e7e2cdecacf37ab6ac294d2b8ed11fc340ecf9d3"
+checksum = "091a745b42f5631139116645b5074890aac7dcc750c9294585e50f1681dbfc80"
 dependencies = [
  "num-traits",
 ]
@@ -34,7 +34,7 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "rootfinder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "numtest",
  "once_cell",
