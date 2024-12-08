@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+1. Removed an unused, placeholder module.
+
 ## 0.2.0
 
 1. Added Newton's method root solver.
