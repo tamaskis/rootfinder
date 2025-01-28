@@ -1,9 +1,9 @@
 use crate::utils::{
-    bracketing::{bracket_sign_change, Interval},
+    bracketing::{initial_interval_handling, Interval, IntervalResult},
     convergence_data::ConvergenceData,
     enums::{SolverError, TerminationReason},
     solver_settings::{SolverSettings, DEFAULT_SOLVER_SETTINGS},
-    termination::{is_max_feval_satisfied, is_vtol_satisfied},
+    termination::is_vtol_satisfied,
 };
 
 /// Determine the number of bisection iterations required to converge within a bracket tolerance.
@@ -40,6 +40,20 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 ///
 /// # Note
 ///
+/// This function always performs one more evaluation of $f(x)$ than is strictly necessary when the
+/// initial interval does bracket a sign change. However, we cannot be guaranteed that the initial
+/// interval does bracket a sign change, so we explicitly check for it. Therefore, instead of just
+/// evaluating $f(x)$ at the lower bound ($a$) of the initial interval, this function will also
+/// evaluate $f(x)$ at the upper bound ($b$) of the initial interval. Note that in addition to just
+/// checking if the initial interval brackets a sign change, it also checks if a root exists at
+/// either bound of the initial interval.
+///
+/// [`root_bisection_fast`] does not perform a function evaluation at the upper bound of the initial
+/// interval. Therefore, it implicitly assumes that the initial interval brackets a sign change in
+/// $f(x)$.
+///
+/// # Note
+///
 /// The following solver settings are used by this function:
 ///
 /// * `batol`
@@ -69,7 +83,7 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 /// ```
 pub fn root_bisection(
     f: &impl Fn(f64) -> f64,
-    ab: Interval,
+    mut ab: Interval,
     solver_settings: Option<&SolverSettings>,
     mut convergence_data: Option<&mut ConvergenceData>,
 ) -> Result<f64, SolverError> {
@@ -81,48 +95,29 @@ pub fn root_bisection(
     // Set solver settings.
     let solver_settings: &SolverSettings = solver_settings.unwrap_or(&DEFAULT_SOLVER_SETTINGS);
 
-    // Default "rebracket" to "false" if not input.
-    let rebracket = solver_settings.rebracket.unwrap_or(false);
-
     // Set the bracket tolerance.
     let batol = solver_settings.batol.unwrap_or(2.0 * f64::EPSILON);
 
-    // New bracketing interval in case the input bracketing interval doesn't actually bracket a sign
-    // change.
-    let mut ab_new = Interval::new(f64::NAN, f64::NAN);
+    // Variable to store the function evaluation at the lower bound of the bracketing interval.
+    let mut fa: f64;
 
-    // Rebrackets to ensure a sign change (if rebracketing is allowed).
-    if rebracket {
-        match bracket_sign_change(
-            f,
-            ab,
-            solver_settings.max_bracket_iter,
-            convergence_data.as_deref_mut(),
-        ) {
-            Ok(ab) => ab_new = ab,
-            Err(e) => return Err(e),
-        };
-    }
-
-    // Move the function evaluation count outside the convergence data struct (we will write it back
-    // at the end).
+    // Variable to track the number of evaluations of `f` performed by this function.
     let mut n_feval: u32 = 0;
-    if let Some(convergence_data) = convergence_data.as_deref_mut() {
-        n_feval = convergence_data.n_feval;
-    }
+
+    // Handling of the initial interval.
+    match initial_interval_handling(f, ab, solver_settings, convergence_data.as_deref_mut()) {
+        IntervalResult::Root(root) => return Ok(root),
+        IntervalResult::SolverError(e) => return Err(e),
+        IntervalResult::UpdatedInterval(updated_interval) => {
+            ab = updated_interval.interval;
+            fa = updated_interval.fa;
+            n_feval += updated_interval.n_feval;
+        }
+    };
 
     // Get the lower and upper bounds of the initial bracketing interval.
-    //  --> Note: if ab_new.a and ab_new.b aren't NaN, this is because we have re-bracketed, and we
-    //            should use the "new" bracketing interval.
-    let mut a;
-    let mut b;
-    if !ab_new.a.is_nan() && !ab_new.b.is_nan() {
-        a = ab_new.a;
-        b = ab_new.b;
-    } else {
-        a = ab.a;
-        b = ab.b;
-    }
+    let mut a = ab.a;
+    let mut b = ab.b;
 
     // Determine k₁⸝₂.
     let k_12 = get_k12(Interval::new(a, b), batol);
@@ -142,33 +137,6 @@ pub fn root_bisection(
 
     // Initial guess (i.e. initial bracketing interval midpoint).
     let mut c = (a + b) / 2.0;
-
-    // Return the initial guess if the maximum number of function evaluations has already been
-    // met/exceeded or if no iteration is required (initial interval has width within bracket
-    // tolerance).
-    if is_max_feval_satisfied(n_feval, solver_settings, convergence_data.as_deref_mut())
-        || max_iter == 0
-    {
-        if let Some(convergence_data) = convergence_data.as_deref_mut() {
-            // Store data.
-            convergence_data.x_all.push(c);
-            convergence_data.a_all.push(a);
-            convergence_data.b_all.push(b);
-            convergence_data.f_all.push(f64::NAN);
-            convergence_data.n_iter = 0;
-            convergence_data.n_feval = n_feval;
-
-            // Set the termination reason if it hasn't been set by one of the termination functions.
-            if let TerminationReason::NotYetTerminated = convergence_data.termination_reason {
-                convergence_data.termination_reason = termination_reason;
-            }
-        }
-        return Ok(c);
-    }
-
-    // Evaluate the function at the lower bound of the bracketing interval.
-    let mut fa = f(a);
-    n_feval += 1;
 
     // Adjust the maximum number of iterations to account for the maximum number of function
     // evaluations.
@@ -247,6 +215,7 @@ pub fn root_bisection(
 /// This implementation is a faster version of [`root_bisection`], with the following changes:
 ///
 /// * It does not allow the specification of solver settings.
+/// * It does not check that the initial interval brackets a sign change in $f(x)$.
 /// * It does not store convergence data.
 /// * The iterative solver terminates when the bracketing interval is within two times the machine
 ///   epsilon ([`f64::EPSILON`]).
@@ -405,7 +374,7 @@ mod tests {
             None,
             Some(2.0 * f64::EPSILON),
             52,
-            53,
+            54,
             0,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -420,10 +389,10 @@ mod tests {
             1.0,
             None,
             Some(2.0 * f64::EPSILON),
-            51,
-            52,
             0,
-            TerminationReason::AbsoluteBracketToleranceSatisfied,
+            2,
+            0,
+            TerminationReason::RootAtLowerBound,
         );
     }
 
@@ -436,10 +405,10 @@ mod tests {
             1.0,
             None,
             Some(2.0 * f64::EPSILON),
-            51,
-            52,
             0,
-            TerminationReason::AbsoluteBracketToleranceSatisfied,
+            2,
+            0,
+            TerminationReason::RootAtUpperBound,
         );
     }
 
@@ -453,7 +422,7 @@ mod tests {
             None,
             None,
             75,
-            76,
+            77,
             0,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -469,7 +438,7 @@ mod tests {
             None,
             None,
             0,
-            0,
+            2,
             0,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -485,26 +454,26 @@ mod tests {
             None,
             None,
             0,
+            2,
             0,
-            0,
-            TerminationReason::AbsoluteBracketToleranceSatisfied,
+            TerminationReason::RootAtLowerBound,
         );
     }
 
     #[test]
     fn test_root_bisection_constant_function() {
-        root_bisection_test_helper(
+        let solver_settings = SolverSettings::default();
+        let mut convergence_data = ConvergenceData::default();
+        let result = root_bisection(
             &|_x: f64| 1.0,
             Interval::new(0.0, 2.0),
-            None,
-            2.0,
-            None,
-            Some(2.0),
-            52,
-            53,
-            0,
-            TerminationReason::AbsoluteBracketToleranceSatisfied,
+            Some(&solver_settings),
+            Some(&mut convergence_data),
         );
+        assert!(matches!(
+            result.unwrap_err(),
+            SolverError::IntervalDoesNotBracketSignChange
+        ));
     }
 
     #[test]
@@ -521,7 +490,7 @@ mod tests {
             Some(solver_settings.batol.unwrap() / 2.0), // Should be within half the bracket tolerance of the true root.
             Some(0.1),
             3,
-            4,
+            5,
             0,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -541,7 +510,7 @@ mod tests {
             Some(solver_settings.vtol.unwrap() / 2.0),
             Some(0.01),
             6,
-            7,
+            8,
             0,
             TerminationReason::ValueToleranceSatisfied,
         );
@@ -561,7 +530,7 @@ mod tests {
             Some(0.0002),
             Some(0.0004),
             10,
-            11,
+            12,
             0,
             TerminationReason::MaxIterationsReached,
         );
@@ -580,7 +549,7 @@ mod tests {
             1.0,
             Some(0.001),
             Some(0.002),
-            9,
+            8,
             10,
             0,
             TerminationReason::MaxFunctionEvaluationsReached,
@@ -601,7 +570,7 @@ mod tests {
             None,
             Some(2.0 * f64::EPSILON),
             52,
-            55,
+            54,
             0,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -621,7 +590,7 @@ mod tests {
             None,
             Some(2.0 * f64::EPSILON),
             53,
-            60,
+            59,
             2,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -640,7 +609,6 @@ mod tests {
             Some(&solver_settings),
             Some(&mut convergence_data),
         );
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             SolverError::BracketingIntervalNotFound
@@ -654,18 +622,16 @@ mod tests {
             max_feval: Some(5),
             ..Default::default()
         };
-        root_bisection_test_helper(
+        let result = root_bisection(
             &|x: f64| x.powi(2) - 1.0,
             Interval::new(1.5, 2.5),
             Some(&solver_settings),
-            1.0,
-            Some(1.0),
-            Some(3.0),
-            0,
-            6,
-            2,
-            TerminationReason::MaxFunctionEvaluationsReached,
+            None,
         );
+        assert!(matches!(
+            result.unwrap_err(),
+            SolverError::BracketingIntervalNotFound
+        ));
     }
 
     #[test]
@@ -683,7 +649,7 @@ mod tests {
             Some(9.0),
             Some(99.0),
             63,
-            76,
+            75,
             5,
             TerminationReason::AbsoluteBracketToleranceSatisfied,
         );
@@ -702,7 +668,6 @@ mod tests {
             Some(&solver_settings),
             None,
         );
-        assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             SolverError::BracketingIntervalNotFound

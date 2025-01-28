@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+1. Updated the `bisection_method` function to check for roots at the lower and upper bounds of the
+initial interval.
+1. Updated the `bisection_method` function to check whether the initial interval brackets a sign change.
+1. Added relative bracket tolerance termination criteria.
+
 ## 0.2.1
 
 1. Removed an unused, placeholder module.

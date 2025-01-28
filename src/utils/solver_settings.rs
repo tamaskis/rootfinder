@@ -35,6 +35,16 @@ pub struct SolverSettings {
     /// interval.
     pub batol: Option<f64>,
 
+    /// Relative bracket tolerance.
+    ///
+    /// The relative bracket tolerance is satisfied when
+    ///
+    /// `(b - a).abs() <= brtol * (a.abs().max(b.abs()))`
+    ///
+    /// where `a` and `b` are the lower and upper bounds, respectively, of the current bracketing
+    /// interval.
+    pub brtol: Option<f64>,
+
     /// Maximum number of solver iterations allowed.
     pub max_iter: Option<u32>,
 
@@ -63,17 +73,21 @@ impl SolverSettings {
     /// * `batol` - Absolute bracket tolerance. The absolute bracket tolerance is satisfied when
     ///             `(b - a).abs() <= batol`, where `a` and `b` are the lower and upper bounds,
     ///             respectively, of the current bracketing interval.
+    /// * `brtol` - Relative bracket tolerance. The relative bracket tolerance is satisfied when
+    ///             `(b - a).abs() <= brtol * (a.abs().max(b.abs()))`, where `a` and `b` are the
+    ///             lower and upper bounds, respectively, of the current bracketing interval.
     /// * `max_iter` - Maximum number of solver iterations allowed.
     /// * `max_feval` - Maximum number of function evaluations allowed.
     /// * `max_deval` - Maximum number of derivative evaluations allowed.
     /// * `rebracket` - `true` if the initial interval should be updated to ensure a sign change,
     ///                 `false` otherwise.
-    /// * `max_bracket_iter` - Maximum number of bracketing iterations allowed.
+    /// * `max_bracket_iter` - Maximum number of iterations to find a bracketing interval allowed.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         xatol: Option<f64>,
         vtol: Option<f64>,
         batol: Option<f64>,
+        brtol: Option<f64>,
         max_iter: Option<u32>,
         max_feval: Option<u32>,
         max_deval: Option<u32>,
@@ -84,6 +98,7 @@ impl SolverSettings {
             xatol,
             vtol,
             batol,
+            brtol,
             max_iter,
             max_feval,
             max_deval,

@@ -29,5 +29,5 @@ pub use crate::univariate_roots::newton::{
     root_newton, root_newton_fast, DEFAULT_NEWTON_SOLVER_SETTINGS,
 };
 pub use crate::utils::bracketing::Interval;
-pub use crate::utils::enums::SolverError;
+pub use crate::utils::enums::{SolverError, TerminationReason};
 pub use crate::utils::solver_settings::{SolverSettings, DEFAULT_SOLVER_SETTINGS};
