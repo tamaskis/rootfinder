@@ -1,6 +1,6 @@
 [package]
 name = "rootfinder"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Tamas Kis"]
 edition = "2021"
 description = "Root-finding methods for both univariate, scalar-valued functions and multivariate, vector-valued functions."

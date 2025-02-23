@@ -3,6 +3,9 @@
 pub enum SolverError {
     /// An error that occurs when a bracketing interval is not found.
     BracketingIntervalNotFound,
+
+    /// An error that occurs when the specified interval does not bracket a sign change.
+    IntervalDoesNotBracketSignChange,
 }
 
 impl std::fmt::Display for SolverError {
@@ -12,6 +15,12 @@ impl std::fmt::Display for SolverError {
                 write!(
                     f,
                     "No interval was found that brackets a sign change of the function."
+                )
+            }
+            SolverError::IntervalDoesNotBracketSignChange => {
+                write!(
+                    f,
+                    "The provided interval does not bracket a sign change of the function."
                 )
             }
         }
@@ -38,6 +47,9 @@ pub enum TerminationReason {
     /// Solver terminated on satisfying the absolute bracket tolerance.
     AbsoluteBracketToleranceSatisfied,
 
+    /// Solver terminated on satisfying the relative bracket tolerance.
+    RelativeBracketToleranceSatisfied,
+
     /// Solver terminated on satisfying the absolute step tolerance.
     AbsoluteStepToleranceSatisfied,
 
@@ -50,6 +62,12 @@ pub enum TerminationReason {
     ///
     /// This is only used for Newton's method.
     ZeroDerivative,
+
+    /// Solver terminated on finding a root at the lower bound of an initial interval.
+    RootAtLowerBound,
+
+    /// Solver terminated on finding a root at the upper bound of an initial interval.
+    RootAtUpperBound,
 }
 
 #[cfg(test)]
@@ -61,6 +79,10 @@ mod tests {
         assert_eq!(
             format!("{}", SolverError::BracketingIntervalNotFound),
             "No interval was found that brackets a sign change of the function."
+        );
+        assert_eq!(
+            format!("{}", SolverError::IntervalDoesNotBracketSignChange),
+            "The provided interval does not bracket a sign change of the function."
         );
     }
 
