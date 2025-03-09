@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+1. Updated `numtest` dev dependency from `0.2.1` to `0.2.2`.
+
 ## 0.3.0
 
 1. Updated the `bisection_method` function to check for roots at the lower and upper bounds of the
