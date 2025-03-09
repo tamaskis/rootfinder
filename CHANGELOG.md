@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+1. Updated `once_cell` dependency from `1.20.2` to `1.20.3`.
+
 ## 0.3.1
 
 1. Updated `numtest` dev dependency from `0.2.1` to `0.2.2`.
