@@ -10,22 +10,6 @@ Root-finding methods for both univariate, scalar-valued functions and multivaria
 
 Please see https://docs.rs/rootfinder.
 
-## Example
-
-```rust
-use rootfinder::{root_bisection, Interval};
-
-// Define the function f(x) = x² - 1.
-let f = |x: f64| x.powi(2) - 1.0;
-
-// We want the root in the interval [0,∞). Therefore, we use an initial interval of
-// [a,b] = [0,9999999]. Finding this root using the bisection method,
-let result = root_bisection(&f, Interval::new(0.0, 9999999.0), None, None);
-let root = result.unwrap();
-
-// `root` is `0.9999999999999999`, which is very close to the true root of 1.
-```
-
 #### License
 
 <sup>
