@@ -1,20 +1,20 @@
 [package]
 name = "rootfinder"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Tamas Kis"]
-edition = "2021"
+edition = "2024"
 description = "Root-finding methods for both univariate, scalar-valued functions and multivariate, vector-valued functions."
 documentation = "https://docs.rs/rootfinder"
 repository = "https://github.com/tamaskis/rootfinder"
 license = "MIT OR Apache-2.0"
 
-exclude = ["Cargo.lock", ".github/", ".vscode/", ".gitignore"]
-
-[dependencies]
-once_cell = "1.20.3"
-
-[dev-dependencies]
-numtest = "0.2.2"
+exclude = [".gitignore", ".github/", ".vscode/", "Cargo.lock", "book/"]
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "src/docs-header.html" ]
+
+[dependencies]
+once_cell = "1.21.3"
+
+[dev-dependencies]
+numtest = "0.2.2"

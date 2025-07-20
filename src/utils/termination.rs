@@ -281,8 +281,8 @@ mod is_xatol_satisfied_tests {
     /// * `x_curr` - Current iterate.
     /// * `x_next` - Next iterate.
     /// * `xatol` - Absolute step tolerance.
-    /// * `expect_satisfied` - `true` if we expect [`is_xatol_satisfied`] to return `true`,
-    ///                        `false` if we expect it to return `false`.
+    /// * `expect_satisfied` - `true` if we expect [`is_xatol_satisfied`] to return `true`, `false`
+    ///   if we expect it to return `false`.
     fn is_xatol_satisfied_test_helper(
         x_curr: f64,
         x_next: f64,
@@ -378,7 +378,7 @@ mod is_vtol_satisfied_tests {
     /// * `v` - Value.
     /// * `vtol` - Value tolerance.
     /// * `expect_satisfied` - `true` if we expect [`is_vtol_satisfied`] to return `true`, `false`
-    ///                        if we expect it to return `false`.
+    ///   if we expect it to return `false`.
     fn is_vtol_satisfied_test_helper(v: f64, vtol: f64, expect_satisfied: bool) {
         // Set solver settings.
         let solver_settings = SolverSettings {
@@ -460,7 +460,7 @@ mod is_batol_satisfied_tests {
     /// * `b` - Upper bound of interval.
     /// * `batol` - Absolute bracket tolerance.
     /// * `expect_satisfied` - `true` if we expect [`is_batol_satisfied`] to return `true`, `false`
-    ///                        if we expect it to return `false`.
+    ///   if we expect it to return `false`.
     fn is_batol_satisfied_test_helper(a: f64, b: f64, batol: f64, expect_satisfied: bool) {
         // Set solver settings.
         let solver_settings = SolverSettings {
@@ -532,7 +532,7 @@ mod is_brtol_satisfied_tests {
     /// * `b` - Upper bound of interval.
     /// * `brtol` - Relative bracket tolerance.
     /// * `expect_satisfied` - `true` if we expect [`is_brtol_satisfied`] to return `true`, `false`
-    ///                        if we expect it to return `false`.
+    ///   if we expect it to return `false`.
     fn is_brtol_satisfied_test_helper(a: f64, b: f64, brtol: f64, expect_satisfied: bool) {
         // Set solver settings.
         let solver_settings = SolverSettings {
@@ -605,7 +605,7 @@ mod is_btol_satisfied_tests {
     /// * `batol` - Absolute bracket tolerance.
     /// * `brtol` - Relative bracket tolerance.
     /// * `expect_satisfied` - `true` if we expect [`is_btol_satisfied`] to return `true`, `false`
-    ///                        if we expect it to return `false`.
+    ///   if we expect it to return `false`.
     /// * `expected_termination_reason` - Expected termination reason (if `expect_satisfied` is
     ///   `true`).
     fn is_btol_satisfied_test_helper(
@@ -774,7 +774,7 @@ mod is_max_feval_satisfied_tests {
     /// * `n_feval` - Number of function evaluations.
     /// * `max_feval` - Maximum number of function evaluations allowed.
     /// * `expect_satisfied` - `true` if we expect [`is_max_feval_satisfied`] to return `true`,
-    ///                        `false` if we expect it to return `false`.
+    ///   `false` if we expect it to return `false`.
     fn is_max_feval_satisfied_test_helper(n_feval: u32, max_feval: u32, expect_satisfied: bool) {
         // Set solver settings.
         let solver_settings = SolverSettings {

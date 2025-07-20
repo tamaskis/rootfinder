@@ -66,21 +66,21 @@ impl SolverSettings {
     ///
     /// # Arguments
     /// * `xatol` - Absolute step tolerance. The absolute step tolerance is satisfied when
-    ///             `(x_next - x_current).abs() <= xatol`, where `x_current` and `x_next` are the
-    ///             current and next iterates, respectively.
+    ///   `(x_next - x_current).abs() <= xatol`, where `x_current` and `x_next` are the current and
+    ///   next iterates, respectively.
     /// * `vtol` - Value tolerance. The value tolerance is satisfied when `v_current.abs() <= vtol`,
-    ///            where `v_current` is the function evaluation at the current iterate.
+    ///   where `v_current` is the function evaluation at the current iterate.
     /// * `batol` - Absolute bracket tolerance. The absolute bracket tolerance is satisfied when
-    ///             `(b - a).abs() <= batol`, where `a` and `b` are the lower and upper bounds,
-    ///             respectively, of the current bracketing interval.
+    ///   `(b - a).abs() <= batol`, where `a` and `b` are the lower and upper bounds, respectively,
+    ///   of the current bracketing interval.
     /// * `brtol` - Relative bracket tolerance. The relative bracket tolerance is satisfied when
-    ///             `(b - a).abs() <= brtol * (a.abs().max(b.abs()))`, where `a` and `b` are the
-    ///             lower and upper bounds, respectively, of the current bracketing interval.
+    ///   `(b - a).abs() <= brtol * (a.abs().max(b.abs()))`, where `a` and `b` are the lower and
+    ///   upper bounds, respectively, of the current bracketing interval.
     /// * `max_iter` - Maximum number of solver iterations allowed.
     /// * `max_feval` - Maximum number of function evaluations allowed.
     /// * `max_deval` - Maximum number of derivative evaluations allowed.
     /// * `rebracket` - `true` if the initial interval should be updated to ensure a sign change,
-    ///                 `false` otherwise.
+    ///   `false` otherwise.
     /// * `max_bracket_iter` - Maximum number of iterations to find a bracketing interval allowed.
     #[allow(clippy::too_many_arguments)]
     pub fn new(

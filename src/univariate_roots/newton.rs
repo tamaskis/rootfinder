@@ -290,11 +290,10 @@ mod tests {
     /// * `x0` - Initial guess for root.
     /// * `solver_settings` - Solver settings.
     /// * `x_exp` - Expected root.
-    /// * `root_tol` - Absolute tolerance for checking if the root (as computed by
-    ///                [`root_newton`]) matches the expected root. Defaults to `1e-10`.
+    /// * `root_tol` - Absolute tolerance for checking if the root (as computed by [`root_newton`])
+    ///   matches the expected root. Defaults to `1e-10`.
     /// * `value_tol` - Absolute tolerance for checking if the function value at the root (as
-    ///                 computed by [`root_newton`]) is sufficiently close to 0. Defaults to
-    ///                 `1e-10`.
+    ///   computed by [`root_newton`]) is sufficiently close to 0. Defaults to `1e-10`.
     /// * `n_iter_exp` - Expected number of iterations.
     /// * `n_feval_exp` - Expected number of function evaluations.
     /// * `n_deval_exp` - Expected number of derivative evaluations.

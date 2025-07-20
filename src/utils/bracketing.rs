@@ -85,7 +85,7 @@ impl Interval {
     ///
     /// This constructor ensures that $a<b$.
     ///
-    /// * If $a=b$, then $b$ is set to $b+100\varepsilon(1+\|b\|)$ (using [`perturb_real`]).
+    /// * If $a=b$, then $b$ is set to $b+100\varepsilon(1+\|b\|)$ (using `perturb_real`).
     /// * If $a>b$, then $a$ and $b$ are swapped.
     pub fn new(a: f64, b: f64) -> Self {
         if a == b {
@@ -137,7 +137,7 @@ impl fmt::Display for Interval {
 /// * `fa` - Function evaluation at the lower bound of the initial interval, $f(a)$.
 /// * `fb` - Function evaluation at the upper bound of the initial interval, $f(b)$.
 /// * `max_bracket_iter` - Maximum number of iterations to find a bracketing interval allowed.
-///                        Defaults to 200.
+///   Defaults to 200.
 ///
 /// # Returns
 ///
@@ -746,8 +746,8 @@ mod tests {
     }
 
     #[test]
-    fn test_initial_interval_handling_root_batol_satisfied_without_sign_change_without_rebracketing(
-    ) {
+    fn test_initial_interval_handling_root_batol_satisfied_without_sign_change_without_rebracketing()
+     {
         // Common inputs for both checks in this test.
         let f = |x: f64| x;
         let ab = Interval::new(0.1, 0.2);

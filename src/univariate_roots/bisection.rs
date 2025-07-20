@@ -1,8 +1,8 @@
 use crate::utils::{
-    bracketing::{initial_interval_handling, Interval, IntervalResult},
+    bracketing::{Interval, IntervalResult, initial_interval_handling},
     convergence_data::ConvergenceData,
     enums::{SolverError, TerminationReason},
-    solver_settings::{SolverSettings, DEFAULT_SOLVER_SETTINGS},
+    solver_settings::{DEFAULT_SOLVER_SETTINGS, SolverSettings},
     termination::is_vtol_satisfied,
 };
 
@@ -26,8 +26,8 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 ///
 /// * `f` - Univariate, scalar-valued function, $f(x)$ ($f:\mathbb{R}\to\mathbb{R}$).
 /// * `ab` - Initial bracketing interval. This interval should bracket a sign change in $f(x)$. If
-///          `solver_settings.rebracket` is `true`, then this interval will be updated in the case
-///          that it does not actually bracket a sign change.
+///   `solver_settings.rebracket` is `true`, then this interval will be updated in the case that it
+///   does not actually bracket a sign change.
 /// * `solver_settings` - Solver settings. Defaults to [`DEFAULT_SOLVER_SETTINGS`].
 /// * `convergence_data` - Convergence data.
 ///
@@ -315,10 +315,9 @@ mod tests {
     /// * `solver_settings` - Solver settings.
     /// * `x_exp` - Expected root.
     /// * `root_tol` - Absolute tolerance for checking if the root (as computed by
-    ///                [`root_bisection`]) matches the expected root. Defaults to [`f64::EPSILON`].
+    ///   [`root_bisection`]) matches the expected root. Defaults to [`f64::EPSILON`].
     /// * `value_tol` - Absolute tolerance for checking if the function value at the root (as
-    ///                 computed by [`root_bisection`]) is sufficiently close to 0. Defaults to
-    ///                 [`f64::EPSILON`].
+    ///   computed by [`root_bisection`]) is sufficiently close to 0. Defaults to [`f64::EPSILON`].
     /// * `n_iter_exp` - Expected number of iterations.
     /// * `n_feval_exp` - Expected number of function evaluations.
     /// * `n_bracket_iter_exp` - Expected number of bracketing iterations.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+1. Updated `rust` version to 2024.
+1. Updated `once_cell` dependency from `1.20.3` to `1.21.3`.
+1. Updated `numtest` dev dependency from `0.2.2` to `0.3.0`.
+
 ## 0.3.2
 
 1. Updated `once_cell` dependency from `1.20.2` to `1.20.3`.
