@@ -35,10 +35,8 @@ pub(crate) fn is_xatol_satisfied(
 ) -> bool {
     let satisfied = solver_settings.xatol.is_some()
         && (x_next - x_curr).abs() <= solver_settings.xatol.unwrap();
-    if satisfied {
-        if let Some(convergence_data) = convergence_data {
-            convergence_data.termination_reason = TerminationReason::AbsoluteStepToleranceSatisfied;
-        }
+    if satisfied && let Some(convergence_data) = convergence_data {
+        convergence_data.termination_reason = TerminationReason::AbsoluteStepToleranceSatisfied;
     }
     satisfied
 }
@@ -73,10 +71,8 @@ pub(crate) fn is_vtol_satisfied(
     convergence_data: Option<&mut ConvergenceData>,
 ) -> bool {
     let satisfied = solver_settings.vtol.is_some() && v.abs() <= solver_settings.vtol.unwrap();
-    if satisfied {
-        if let Some(convergence_data) = convergence_data {
-            convergence_data.termination_reason = TerminationReason::ValueToleranceSatisfied;
-        }
+    if satisfied && let Some(convergence_data) = convergence_data {
+        convergence_data.termination_reason = TerminationReason::ValueToleranceSatisfied;
     }
     satisfied
 }
@@ -120,11 +116,8 @@ pub(crate) fn is_batol_satisfied(
 ) -> bool {
     let satisfied =
         solver_settings.batol.is_some() && (b - a).abs() <= solver_settings.batol.unwrap();
-    if satisfied {
-        if let Some(convergence_data) = convergence_data {
-            convergence_data.termination_reason =
-                TerminationReason::AbsoluteBracketToleranceSatisfied;
-        }
+    if satisfied && let Some(convergence_data) = convergence_data {
+        convergence_data.termination_reason = TerminationReason::AbsoluteBracketToleranceSatisfied;
     }
     satisfied
 }
@@ -168,11 +161,8 @@ pub(crate) fn is_brtol_satisfied(
 ) -> bool {
     let satisfied = solver_settings.brtol.is_some()
         && (b - a).abs() <= solver_settings.brtol.unwrap() * a.abs().max(b.abs());
-    if satisfied {
-        if let Some(convergence_data) = convergence_data {
-            convergence_data.termination_reason =
-                TerminationReason::RelativeBracketToleranceSatisfied;
-        }
+    if satisfied && let Some(convergence_data) = convergence_data {
+        convergence_data.termination_reason = TerminationReason::RelativeBracketToleranceSatisfied;
     }
     satisfied
 }
@@ -262,10 +252,8 @@ pub(crate) fn is_max_feval_satisfied(
 ) -> bool {
     let satisfied =
         solver_settings.max_feval.is_some() && n_feval >= solver_settings.max_feval.unwrap();
-    if satisfied {
-        if let Some(convergence_data) = convergence_data {
-            convergence_data.termination_reason = TerminationReason::MaxFunctionEvaluationsReached;
-        }
+    if satisfied && let Some(convergence_data) = convergence_data {
+        convergence_data.termination_reason = TerminationReason::MaxFunctionEvaluationsReached;
     }
     satisfied
 }
