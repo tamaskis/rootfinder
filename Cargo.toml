@@ -1,6 +1,6 @@
 [package]
 name = "rootfinder"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Tamas Kis"]
 edition = "2024"
 description = "Root-finding methods for both univariate, scalar-valued functions and multivariate, vector-valued functions."
@@ -17,4 +17,4 @@ rustdoc-args = [ "--html-in-header", "src/docs-header.html" ]
 once_cell = "1.21.3"
 
 [dev-dependencies]
-numtest = "0.2.2"
+numtest = "0.3.1"
