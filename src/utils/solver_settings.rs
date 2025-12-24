@@ -1,8 +1,10 @@
 use core::f64;
-use once_cell::sync::Lazy;
+
+use std::sync::LazyLock;
 
 /// Default solver settings.
-pub static DEFAULT_SOLVER_SETTINGS: Lazy<SolverSettings> = Lazy::new(SolverSettings::default);
+pub static DEFAULT_SOLVER_SETTINGS: LazyLock<SolverSettings> =
+    LazyLock::new(SolverSettings::default);
 
 /// Solver settings.
 #[derive(Default, Clone)]

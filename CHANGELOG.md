@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+1. Removed `once_cell` dependency.
+1. Updated `numtest` dev dependency from `0.3.1` to `0.4.0`.
+
 ## 0.4.1
 
 1. Collapsed some `if` statements to resolve new lints.

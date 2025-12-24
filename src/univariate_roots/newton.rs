@@ -6,7 +6,7 @@ use crate::utils::{
     termination::{is_vtol_satisfied, is_xatol_satisfied},
 };
 use core::f64;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 /// Default Newton's method solver settings.
 ///
@@ -14,11 +14,12 @@ use once_cell::sync::Lazy;
 /// | ------- | ------------- |
 /// | `max_iter` | `200` |
 /// | `xatol` | `1e-10` |
-pub static DEFAULT_NEWTON_SOLVER_SETTINGS: Lazy<SolverSettings> = Lazy::new(|| SolverSettings {
-    max_iter: Some(200),
-    xatol: Some(1e-10),
-    ..Default::default()
-});
+pub static DEFAULT_NEWTON_SOLVER_SETTINGS: LazyLock<SolverSettings> =
+    LazyLock::new(|| SolverSettings {
+        max_iter: Some(200),
+        xatol: Some(1e-10),
+        ..Default::default()
+    });
 
 /// Newton's method for finding the root of a differentiable, univariate, scalar-valued function.
 ///
