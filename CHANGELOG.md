@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+1. Fix clippy lint with rust version `>=1.93.0`.
+1. Updated `numtest` dev dependency from `0.4.0` to `0.4.1`.
+
 ## 0.5.0
 
 1. Removed `once_cell` dependency.
