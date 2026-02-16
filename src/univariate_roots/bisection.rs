@@ -140,9 +140,9 @@ pub fn root_bisection(
 
     // Adjust the maximum number of iterations to account for the maximum number of function
     // evaluations.
-    if solver_settings.max_feval.is_some() {
+    if let Some(max_feval) = solver_settings.max_feval {
         // Number of function evaluations remaining.
-        let n_feval_remaining = solver_settings.max_feval.unwrap() - n_feval;
+        let n_feval_remaining = max_feval - n_feval;
 
         // If the number of function evaluations remaining is less than the maximum number of
         // iterations, we must updated the maximum number of iterations so we don't exceed the
