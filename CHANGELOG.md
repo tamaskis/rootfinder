@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+1. Added `linalg-traits` dependency in order to add compatibility with forward-mode automatic differentiation through the `numdiff` crate.
+
 ## 0.5.1
 
 1. Fix clippy lint with rust version `>=1.93.0`.

@@ -1,3 +1,5 @@
+use linalg_traits::Scalar;
+
 /// Perturb a real number.
 ///
 /// # Arguments
@@ -10,10 +12,10 @@
 ///
 /// # Note
 ///
-/// $x$ is pertubed as $x+100\varepsilon(1+\|x\|)$ where $\varpsilon$ is defined by
+/// $x$ is pertubed as $x+100\varepsilon(1+\|x\|)$ where $\varepsilon$ is defined by
 /// [`f64::EPSILON`].
-pub fn perturb_real(x: f64) -> f64 {
-    x + 100.0 * f64::EPSILON * (1.0 + x.abs())
+pub fn perturb_real<S: Scalar>(x: S) -> S {
+    x + S::new(100.0) * S::new(f64::EPSILON) * (S::one() + x.abs())
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use crate::utils::{
     solver_settings::{DEFAULT_SOLVER_SETTINGS, SolverSettings},
     termination::is_vtol_satisfied,
 };
+use linalg_traits::Scalar;
 
 /// Determine the number of bisection iterations required to converge within a bracket tolerance.
 ///
@@ -16,8 +17,9 @@ use crate::utils::{
 /// # Returns
 ///
 /// Number of bisection iterations required to converge within the bracket tolerance, `batol`.
-fn get_k12(ab: Interval, batol: f64) -> u32 {
-    ((ab.b - ab.a) / batol).log2().ceil() as u32
+fn get_k12<S: Scalar>(ab: Interval<S>, batol: f64) -> u32 {
+    let k12_f64 = ((ab.b - ab.a) / batol).log2().ceil().into();
+    k12_f64 as u32
 }
 
 /// Bisection method for finding the root of a univariate, scalar-valued function.
@@ -81,12 +83,12 @@ fn get_k12(ab: Interval, batol: f64) -> u32 {
 /// let root = result.unwrap();
 /// assert_equal_to_decimal!(root, 1.0, 16);
 /// ```
-pub fn root_bisection(
-    f: &impl Fn(f64) -> f64,
-    mut ab: Interval,
+pub fn root_bisection<S: Scalar>(
+    f: &impl Fn(S) -> S,
+    mut ab: Interval<S>,
     solver_settings: Option<&SolverSettings>,
     mut convergence_data: Option<&mut ConvergenceData>,
-) -> Result<f64, SolverError> {
+) -> Result<S, SolverError> {
     // Since we will pre-compute the maximum number of iterations based on multiple termination
     // criteria, we need to start tracking which criterion dictates the number of iterations we
     // perform.
@@ -99,7 +101,7 @@ pub fn root_bisection(
     let batol = solver_settings.batol.unwrap_or(2.0 * f64::EPSILON);
 
     // Variable to store the function evaluation at the lower bound of the bracketing interval.
-    let mut fa: f64;
+    let mut fa: S;
 
     // Variable to track the number of evaluations of `f` performed by this function.
     let mut n_feval: u32 = 0;
@@ -166,20 +168,20 @@ pub fn root_bisection(
 
         // Stores kth root estimate, bracketing interval, and function evaluation.
         if let Some(convergence_data) = convergence_data.as_deref_mut() {
-            convergence_data.x_all.push(c);
-            convergence_data.a_all.push(a);
-            convergence_data.b_all.push(b);
-            convergence_data.f_all.push(fc);
+            convergence_data.x_all.push(c.into());
+            convergence_data.a_all.push(a.into());
+            convergence_data.b_all.push(b.into());
+            convergence_data.f_all.push(fc.into());
             convergence_data.n_iter += 1;
         }
 
         // Solver termination on convergence criteria.
-        if is_vtol_satisfied(fc, solver_settings, convergence_data.as_deref_mut()) {
+        if is_vtol_satisfied(fc.into(), solver_settings, convergence_data.as_deref_mut()) {
             break;
         }
 
         // Update the bracketing interval.
-        if fa * fc > 0.0 {
+        if fa * fc > S::zero() {
             a = c;
             fa = fc;
         } else {
@@ -194,9 +196,9 @@ pub fn root_bisection(
     // the termination reason.
     if let Some(convergence_data) = convergence_data {
         // Store data.
-        convergence_data.x_all.push(c);
-        convergence_data.a_all.push(a);
-        convergence_data.b_all.push(b);
+        convergence_data.x_all.push(c.into());
+        convergence_data.a_all.push(a.into());
+        convergence_data.b_all.push(b.into());
         convergence_data.f_all.push(f64::NAN);
         convergence_data.n_feval = n_feval;
 
@@ -250,9 +252,9 @@ pub fn root_bisection(
 /// let root = root_bisection_fast(&f, Interval::new(0.0, 9999999.0));
 /// assert_equal_to_decimal!(root, 1.0, 16);
 /// ```
-pub fn root_bisection_fast(f: &impl Fn(f64) -> f64, ab: Interval) -> f64 {
+pub fn root_bisection_fast<S: Scalar>(f: &impl Fn(S) -> S, ab: Interval<S>) -> S {
     // Determine the number of iterations needed for convergence.
-    let n_iter = ((ab.b - ab.a) / (2.0 * f64::EPSILON)).log2().ceil() as u32;
+    let n_iter = get_k12(ab, 2.0 * f64::EPSILON);
 
     // Make a and b mutable.
     let mut a = ab.a;
@@ -273,7 +275,7 @@ pub fn root_bisection_fast(f: &impl Fn(f64) -> f64, ab: Interval) -> f64 {
         fc = f(c);
 
         // Update the bracketing interval.
-        if fa * fc > 0.0 {
+        if fa * fc > S::zero() {
             a = c;
             fa = fc;
         } else {
@@ -325,7 +327,7 @@ mod tests {
     #[allow(clippy::too_many_arguments)]
     fn root_bisection_test_helper(
         f: &impl Fn(f64) -> f64,
-        ab: Interval,
+        ab: Interval<f64>,
         solver_settings: Option<&SolverSettings>,
         x_exp: f64,
         root_tol: Option<f64>,

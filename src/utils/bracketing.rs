@@ -4,6 +4,7 @@ use crate::utils::enums::TerminationReason;
 use crate::utils::perturb::perturb_real;
 use crate::utils::solver_settings::SolverSettings;
 use crate::utils::termination::{is_btol_satisfied, is_vtol_satisfied};
+use linalg_traits::Scalar;
 use std::fmt;
 
 /// Updated interval with some associated metadata for bracketing methods.
@@ -12,18 +13,18 @@ use std::fmt;
 ///
 /// The primary purpose of this struct is to store data produced by [`initial_interval_handling`].
 #[derive(Debug, PartialEq)]
-pub(crate) struct UpdatedInterval {
+pub(crate) struct UpdatedInterval<S: Scalar> {
     /// Updated interval.
-    pub(crate) interval: Interval,
+    pub(crate) interval: Interval<S>,
 
     /// Function evaluation at the lower bound of the updated interval.
-    pub(crate) fa: f64,
+    pub(crate) fa: S,
 
     /// Number of function evaluations performed to get the updated interval.
     pub(crate) n_feval: u32,
 }
 
-impl UpdatedInterval {
+impl<S: Scalar> UpdatedInterval<S> {
     /// Constructor.
     ///
     /// # Arguments
@@ -35,7 +36,7 @@ impl UpdatedInterval {
     /// # Returns
     ///
     /// Updated interval with some associated metadata for bracketing methods.
-    pub(crate) fn new(interval: Interval, fa: f64, n_feval: u32) -> UpdatedInterval {
+    pub(crate) fn new(interval: Interval<S>, fa: S, n_feval: u32) -> UpdatedInterval<S> {
         UpdatedInterval {
             interval,
             fa,
@@ -45,13 +46,13 @@ impl UpdatedInterval {
 }
 
 #[derive(Debug)]
-pub enum IntervalResult {
+pub enum IntervalResult<S: Scalar> {
     /// The updated interval produced by [`initial_interval_handling`] (if a root wasn't found or a
     /// solver error wasn't encountered).
-    UpdatedInterval(UpdatedInterval),
+    UpdatedInterval(UpdatedInterval<S>),
 
     /// The root of the function if one was found during the handling of the initial interval.
-    Root(f64),
+    Root(S),
 
     /// A solver error that was encountered during the handling of the initial interval.
     ///
@@ -65,15 +66,15 @@ pub enum IntervalResult {
 
 /// Interval.
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Interval {
+pub struct Interval<S: Scalar> {
     /// Lower bound of interval, $a\in\mathbb{R}$.
-    pub a: f64,
+    pub a: S,
 
     /// Upper bound of interval, $b\in\mathbb{R}$.
-    pub b: f64,
+    pub b: S,
 }
 
-impl Interval {
+impl<S: Scalar> Interval<S> {
     /// Constructor.
     ///
     /// # Arguments
@@ -87,7 +88,7 @@ impl Interval {
     ///
     /// * If $a=b$, then $b$ is set to $b+100\varepsilon(1+\|b\|)$ (using `perturb_real`).
     /// * If $a>b$, then $a$ and $b$ are swapped.
-    pub fn new(a: f64, b: f64) -> Self {
+    pub fn new(a: S, b: S) -> Self {
         if a == b {
             Self {
                 a,
@@ -111,7 +112,7 @@ impl Interval {
     /// This constructor returns the interval
     ///
     /// $\[a,b\]=[x,x+100\varepsilon(1+\|x\|)]$
-    pub fn from_point(x: f64) -> Self {
+    pub fn from_point(x: S) -> Self {
         Self {
             a: x,
             b: perturb_real(x),
@@ -120,9 +121,9 @@ impl Interval {
 }
 
 // Implementation of the std::fmt::Display trait for the Interval struct.
-impl fmt::Display for Interval {
+impl<S: Scalar> fmt::Display for Interval<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Interval(a: {}, b: {})", self.a, self.b)
+        write!(f, "Interval(a: {:?}, b: {:?})", self.a, self.b)
     }
 }
 
@@ -155,15 +156,15 @@ impl fmt::Display for Interval {
 /// # Note
 ///
 /// Each bracket
-pub fn bracket_sign_change(
-    f: &impl Fn(f64) -> f64,
-    ab: Interval,
-    mut fa: f64,
-    mut fb: f64,
+pub fn bracket_sign_change<S: Scalar>(
+    f: &impl Fn(S) -> S,
+    ab: Interval<S>,
+    mut fa: S,
+    mut fb: S,
     max_bracket_iter: u32,
-) -> Result<(Interval, f64, u32, u32), SolverError> {
+) -> Result<(Interval<S>, S, u32, u32), SolverError> {
     // If the initial interval bracket's a sign change, return it.
-    if fa * fb < 0.0 {
+    if fa * fb < 0.0.into() {
         return Ok((ab, fa, 0, 0));
     }
 
@@ -201,7 +202,7 @@ pub fn bracket_sign_change(
         n_feval += 2;
 
         // Determine if the new interval brackets a sign change.
-        if fa * fb < 0.0 {
+        if fa * fb < 0.0.into() {
             sign_change = true;
             break;
         }
@@ -263,12 +264,12 @@ pub fn bracket_sign_change(
 /// * This function allows `bracket_sign_change` to perform up to and including 200 iterations to
 ///   find a bracketing interval if `solver_settings.rebracket` is `true`, unless some other limit
 ///   is specified by `solver_settings.max_bracket_iter`.
-pub fn initial_interval_handling(
-    f: &impl Fn(f64) -> f64,
-    ab: Interval,
+pub fn initial_interval_handling<S: Scalar>(
+    f: &impl Fn(S) -> S,
+    ab: Interval<S>,
     solver_settings: &SolverSettings,
     mut convergence_data: Option<&mut ConvergenceData>,
-) -> IntervalResult {
+) -> IntervalResult<S> {
     // Variable to track the number of evaluations of `f` performed by this function.
     let mut n_feval: u32 = 0;
 
@@ -285,9 +286,11 @@ pub fn initial_interval_handling(
 
     // Determine if there is a root at either bound of the interval.
     let root_at_lower_bound =
-        is_vtol_satisfied(fa, solver_settings, convergence_data.as_deref_mut()) || fa == 0.0;
+        is_vtol_satisfied(fa.into(), solver_settings, convergence_data.as_deref_mut())
+            || fa == S::zero();
     let root_at_upper_bound =
-        is_vtol_satisfied(fb, solver_settings, convergence_data.as_deref_mut()) || fb == 0.0;
+        is_vtol_satisfied(fb.into(), solver_settings, convergence_data.as_deref_mut())
+            || fb == S::zero();
 
     // Handling for the case where there is a root at one of the bounds.
     if root_at_lower_bound || root_at_upper_bound {
@@ -296,17 +299,17 @@ pub fn initial_interval_handling(
 
         // Store the convergence data.
         if let Some(convergence_data) = convergence_data.as_deref_mut() {
-            convergence_data.x_all.push(root);
-            convergence_data.a_all.push(ab.a);
-            convergence_data.b_all.push(ab.b);
+            convergence_data.x_all.push(root.into());
+            convergence_data.a_all.push(ab.a.into());
+            convergence_data.b_all.push(ab.b.into());
             if root_at_lower_bound {
-                convergence_data.f_all.push(fa);
+                convergence_data.f_all.push(fa.into());
                 if convergence_data.termination_reason != TerminationReason::ValueToleranceSatisfied
                 {
                     convergence_data.termination_reason = TerminationReason::RootAtLowerBound;
                 }
             } else {
-                convergence_data.f_all.push(fb);
+                convergence_data.f_all.push(fb.into());
                 if convergence_data.termination_reason != TerminationReason::ValueToleranceSatisfied
                 {
                     convergence_data.termination_reason = TerminationReason::RootAtUpperBound;
@@ -321,13 +324,18 @@ pub fn initial_interval_handling(
     // If the interval brackets a sign change and the bracket tolerance(s) are satisfied, then the
     // midpoint of the interval is the root.
     if (fa.signum() != fb.signum())
-        && is_btol_satisfied(ab.a, ab.b, solver_settings, convergence_data.as_deref_mut())
+        && is_btol_satisfied(
+            ab.a.into(),
+            ab.b.into(),
+            solver_settings,
+            convergence_data.as_deref_mut(),
+        )
     {
         let root = (ab.a + ab.b) / 2.0;
         if let Some(convergence_data) = convergence_data.as_deref_mut() {
-            convergence_data.x_all.push(root);
-            convergence_data.a_all.push(ab.a);
-            convergence_data.b_all.push(ab.b);
+            convergence_data.x_all.push(root.into());
+            convergence_data.a_all.push(ab.a.into());
+            convergence_data.b_all.push(ab.b.into());
             convergence_data.f_all.push(f64::NAN);
         }
         return IntervalResult::Root(root);
@@ -402,8 +410,8 @@ mod tests {
     #[test]
     fn test_interval_print() {
         assert_eq!(
-            format!("{}", Interval::new(1.0, 2.5)),
-            "Interval(a: 1, b: 2.5)"
+            format!("{}", Interval::new(1.123, 2.5)),
+            "Interval(a: 1.123, b: 2.5)"
         );
     }
 

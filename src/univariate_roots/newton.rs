@@ -6,6 +6,7 @@ use crate::utils::{
     termination::{is_vtol_satisfied, is_xatol_satisfied},
 };
 use core::f64;
+use linalg_traits::Scalar;
 use std::sync::LazyLock;
 
 /// Default Newton's method solver settings.
@@ -75,13 +76,13 @@ pub static DEFAULT_NEWTON_SOLVER_SETTINGS: LazyLock<SolverSettings> =
 /// let root = result.unwrap();
 /// assert_equal_to_decimal!(root, 1.0, 11);
 /// ```
-pub fn root_newton(
-    f: &impl Fn(f64) -> f64,
-    df: &impl Fn(f64) -> f64,
-    x0: f64,
+pub fn root_newton<S: Scalar>(
+    f: &impl Fn(S) -> S,
+    df: &impl Fn(S) -> S,
+    x0: S,
     solver_settings: Option<&SolverSettings>,
     mut convergence_data: Option<&mut ConvergenceData>,
-) -> Result<f64, SolverError> {
+) -> Result<S, SolverError> {
     // Set solver settings.
     let solver_settings: &SolverSettings =
         solver_settings.unwrap_or(&DEFAULT_NEWTON_SOLVER_SETTINGS);
@@ -90,30 +91,34 @@ pub fn root_newton(
     let mut x_curr = x0;
 
     // Declare next root estimate and function evaluation.
-    let mut x_next: f64;
-    let mut f_next: f64;
-    let mut df_next: f64;
+    let mut x_next: S;
+    let mut f_next: S;
+    let mut df_next: S;
 
     // Evaluate the function and its derivative at the initial guess.
     let mut f_curr = f(x_curr);
     let mut df_curr = df(x_curr);
     if let Some(convergence_data) = convergence_data.as_deref_mut() {
-        convergence_data.x_all.push(x_curr);
-        convergence_data.f_all.push(f_curr);
-        convergence_data.df_all.push(df_curr);
+        convergence_data.x_all.push(x_curr.into());
+        convergence_data.f_all.push(f_curr.into());
+        convergence_data.df_all.push(df_curr.into());
         convergence_data.n_feval += 1;
         convergence_data.n_deval += 1;
     }
 
     // Return the initial guess if it is a root of f(x).
-    if is_vtol_satisfied(f_curr, solver_settings, convergence_data.as_deref_mut()) {
+    if is_vtol_satisfied(
+        f_curr.into(),
+        solver_settings,
+        convergence_data.as_deref_mut(),
+    ) {
         return Ok(x_curr);
     }
 
     // Iterative solution.
     for _ in 0..solver_settings.max_iter.unwrap() {
         // Handle the edge case where the derivative is 0.
-        if df_curr == 0.0 {
+        if df_curr == S::zero() {
             // Perturb the iterate.
             x_curr = perturb_real(x_curr);
 
@@ -126,7 +131,7 @@ pub fn root_newton(
             }
 
             // Terminate if the derivative is still 0 after perturbing the iterate.
-            if df_curr == 0.0 {
+            if df_curr == S::zero() {
                 if let Some(convergence_data) = convergence_data.as_deref_mut() {
                     convergence_data.termination_reason = TerminationReason::ZeroDerivative;
                 }
@@ -141,9 +146,9 @@ pub fn root_newton(
         f_next = f(x_next);
         df_next = df(x_next);
         if let Some(convergence_data) = convergence_data.as_deref_mut() {
-            convergence_data.x_all.push(x_next);
-            convergence_data.f_all.push(f_next);
-            convergence_data.df_all.push(df_next);
+            convergence_data.x_all.push(x_next.into());
+            convergence_data.f_all.push(f_next.into());
+            convergence_data.df_all.push(df_next.into());
             convergence_data.n_iter += 1;
             convergence_data.n_feval += 1;
             convergence_data.n_deval += 1;
@@ -151,15 +156,19 @@ pub fn root_newton(
 
         // Solver termination on convergence criteria.
         if is_xatol_satisfied(
-            x_curr,
-            x_next,
+            x_curr.into(),
+            x_next.into(),
             solver_settings,
             convergence_data.as_deref_mut(),
         ) {
             x_curr = x_next;
             break;
         }
-        if is_vtol_satisfied(f_next, solver_settings, convergence_data.as_deref_mut()) {
+        if is_vtol_satisfied(
+            f_next.into(),
+            solver_settings,
+            convergence_data.as_deref_mut(),
+        ) {
             x_curr = x_next;
             break;
         }
@@ -217,12 +226,12 @@ pub fn root_newton(
 /// let root = root_newton_fast(&f, &df, 10.0, None);
 /// assert_equal_to_decimal!(root, 1.0, 11);
 /// ```
-pub fn root_newton_fast(
-    f: &impl Fn(f64) -> f64,
-    df: &impl Fn(f64) -> f64,
-    x0: f64,
+pub fn root_newton_fast<S: Scalar>(
+    f: &impl Fn(S) -> S,
+    df: &impl Fn(S) -> S,
+    x0: S,
     xatol: Option<f64>,
-) -> f64 {
+) -> S {
     // Default the absolute step tolerance to `1e-10` unless otherwise specified.
     let xatol = xatol.unwrap_or(1e-10);
 
@@ -230,9 +239,9 @@ pub fn root_newton_fast(
     let mut x_curr = x0;
 
     // Declare next root estimate and function evaluation.
-    let mut x_next: f64;
-    let mut f_next: f64;
-    let mut df_next: f64;
+    let mut x_next: S;
+    let mut f_next: S;
+    let mut df_next: S;
 
     // Evaluate the function and its derivative at the initial guess.
     let mut f_curr = f(x_curr);
@@ -241,7 +250,7 @@ pub fn root_newton_fast(
     // Iterative solution.
     for _ in 0..200 {
         // Handle the edge case where the derivative is 0.
-        if df_curr == 0.0 {
+        if df_curr == S::zero() {
             // Perturb the iterate.
             x_curr = perturb_real(x_curr);
 
@@ -250,7 +259,7 @@ pub fn root_newton_fast(
             df_curr = df(x_curr);
 
             // Terminate if the derivative is still 0 after perturbing the iterate.
-            if df_curr == 0.0 {
+            if df_curr == S::zero() {
                 break;
             }
         }
@@ -263,7 +272,7 @@ pub fn root_newton_fast(
         df_next = df(x_next);
 
         // Solver termination on convergence criteria.
-        if (x_next - x_curr).abs() <= xatol {
+        if (x_next - x_curr).abs() <= xatol.into() {
             x_curr = x_next;
             break;
         }

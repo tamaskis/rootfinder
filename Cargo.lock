@@ -9,12 +9,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "linalg-traits"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec4b7ac946c17beaa870bebeb90712a6c2bdc5c1dc5481ae35638ee753083b2d"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "numdiff"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be5d1dac4ec05a6eec6f78b8bfca53c85af9b541f2bf5c44bfe06adcdff34dce"
+dependencies = [
+ "linalg-traits",
+ "num-traits",
 ]
 
 [[package]]
@@ -30,5 +49,7 @@ dependencies = [
 name = "rootfinder"
 version = "0.5.1"
 dependencies = [
+ "linalg-traits",
+ "numdiff",
  "numtest",
 ]
